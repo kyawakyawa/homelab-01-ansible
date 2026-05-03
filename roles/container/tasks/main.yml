@@ -8,8 +8,8 @@
 - name: DO NOT INSTALL Docker!!!
   ansible.builtin.apt:
     state: absent
-    autoremove: yes
-    update_cache: yes
+    autoremove: true
+    update_cache: true
     pkg:
       - docker-ce
       - docker-ce-cli

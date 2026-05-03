@@ -18,7 +18,7 @@
       ansible.builtin.copy:
         src: /etc/kubernetes/admin.conf
         dest: "{{ ansible_facts['env']['HOME'] }}/.kube/config"
-        remote_src: yes
+        remote_src: true
         owner: "user"
         mode: '0640'
     - name: Create join command
@@ -40,7 +40,7 @@
         path: /etc/default/kubelet
         regexp: '^KUBELET_EXTRA_ARGS='
         line: "KUBELET_EXTRA_ARGS=--node-ip={{ internal_ip }}"
-        create: yes
+        create: true
       when: internal_ip is defined
     - name: Join the Worker Node to the cluster
       ansible.builtin.shell: "{{ kubeadm_join_command }}"

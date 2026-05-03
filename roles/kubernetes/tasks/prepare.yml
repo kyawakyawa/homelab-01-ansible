@@ -25,19 +25,19 @@
     - name: 'Install kuberadm kubectl'
       ansible.builtin.apt:
         state: present # latest  # 更新する場合はこちらにする
-        update_cache: yes
+        update_cache: true
         pkg:
           - kubeadm=1.34.0-1.1
           - kubectl=1.34.0-1.1
           - kubelet=1.34.0-1.1
-        allow_downgrade: yes
+        allow_downgrade: true
   become: true
 - name: Helm
   block:
     - name: 'Install apt-transport-https'
       ansible.builtin.apt:
         state: present # latest  # 更新する場合はこちらにする
-        update_cache: yes
+        update_cache: true
         pkg:
           - apt-transport-https
     - name: Ensure the keyrings directory exists
@@ -57,10 +57,10 @@
     - name: 'Install helm'
       ansible.builtin.apt:
         state: present
-        update_cache: yes
+        update_cache: true
         pkg:
           - helm=3.18.6-1
-        allow_downgrade: yes
+        allow_downgrade: true
   become: true
 - name: Containerd.conf
   block:
@@ -101,7 +101,7 @@
         path: /etc/containerd/config.toml
         regexp: '^\s*SystemdCgroup\s*='
         line: '\g<0> true'
-        backrefs: yes
+        backrefs: true
     - name: Disable 'disabled_plugins = ["cri"]'
       ansible.builtin.lineinfile:
         path: /etc/containerd/config.toml
@@ -145,5 +145,5 @@
         path: "/etc/fstab"
         regexp: '^(?!#).*/swap.img.*$'
         line: '# \g<0>'
-        backrefs: yes
+        backrefs: true
   become: true

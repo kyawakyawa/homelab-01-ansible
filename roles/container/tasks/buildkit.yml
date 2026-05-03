@@ -21,9 +21,12 @@
 
 - name: Download
   ansible.builtin.get_url:
-    url: "https://github.com/moby/buildkit/releases/download/{{ buildkit_version }}/buildkit-{{ buildkit_version }}.linux-{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}.tar.gz"
+    url: "https://github.com/moby/buildkit/releases/download/{{ buildkit_version }}/{{ buildkit_archive }}"
     dest: /tmp/buildkit.tar.gz
     mode: '0700'
+  vars:
+    buildkit_arch: "{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}"
+    buildkit_archive: "buildkit-{{ buildkit_version }}.linux-{{ buildkit_arch }}.tar.gz"
   become: true
 
 - name: Extract nerdctl.tar.gz into /tmp
@@ -76,11 +79,11 @@
 
 - name: Reload systemd daemon to apply changes
   ansible.builtin.systemd:
-    daemon_reload: yes
+    daemon_reload: true
   become: true
 
 - name: Start buildkitd.service
   ansible.builtin.systemd:
     name: buildkitd.service
     state: started
-    enabled: yes
+    enabled: true

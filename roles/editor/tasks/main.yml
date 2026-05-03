@@ -9,9 +9,11 @@
 - name: Install neovim
   ansible.builtin.get_url:
     url: >-
-      https://github.com/neovim/neovim/releases/download/{{ neovim_version }}/nvim-linux-{{ 'arm64' if ansible_facts["architecture"] == 'aarch64' else 'x86_64' }}.appimage
+      https://github.com/neovim/neovim/releases/download/{{ neovim_version }}/nvim-linux-{{ neovim_arch }}.appimage
     dest: /usr/local/bin/nvim
     mode: +x
+  vars:
+    neovim_arch: "{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'x86_64' }}"
   become: true
   when:
     - ansible_facts["system"] == "Linux"
@@ -21,22 +23,26 @@
     - name: Download
       ansible.builtin.get_url:
         url: >-
-          https://github.com/BurntSushi/ripgrep/releases/download/{{ ripgrep_version }}/ripgrep-{{ ripgrep_version }}-{{ 'aarch64-unknown-linux-gnu' if ansible_facts["architecture"] == 'aarch64' else 'x86_64-unknown-linux-musl' }}.tar.gz
-        dest: "/tmp/ripgrep-{{ ripgrep_version }}-{{ 'aarch64-unknown-linux-gnu' if ansible_facts['architecture'] == 'aarch64' else 'x86_64-unknown-linux-musl' }}.tar.gz"
+          https://github.com/BurntSushi/ripgrep/releases/download/{{ ripgrep_version }}/{{ ripgrep_archive }}.tar.gz
+        dest: "/tmp/{{ ripgrep_archive }}.tar.gz"
       when:
         - ansible_facts["system"] == "Linux"
         - ansible_facts["architecture"] in ["x86_64", "aarch64"]
     - name: Unarchive
       ansible.builtin.unarchive:
-        src: "/tmp/ripgrep-{{ ripgrep_version }}-{{ 'aarch64-unknown-linux-gnu' if ansible_facts['architecture'] == 'aarch64' else 'x86_64-unknown-linux-musl' }}.tar.gz"
+        src: "/tmp/{{ ripgrep_archive }}.tar.gz"
         dest: "/tmp"
         remote_src: true
     - name: Copy
       ansible.builtin.copy:
-        src: "/tmp/ripgrep-{{ ripgrep_version }}-{{ 'aarch64-unknown-linux-gnu' if ansible_facts['architecture'] == 'aarch64' else 'x86_64-unknown-linux-musl' }}/rg"
+        src: "/tmp/{{ ripgrep_archive }}/rg"
         dest: "/usr/local/bin/rg"
         remote_src: true
-        mode: 755
+        mode: '0755'
+  vars:
+    ripgrep_arch: >-
+      {{ 'aarch64-unknown-linux-gnu' if ansible_facts['architecture'] == 'aarch64' else 'x86_64-unknown-linux-musl' }}
+    ripgrep_archive: "ripgrep-{{ ripgrep_version }}-{{ ripgrep_arch }}"
   when:
     - ansible_facts["system"] == "Linux"
     - ansible_facts["architecture"] in ["x86_64", "aarch64"]

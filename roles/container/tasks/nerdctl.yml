@@ -3,10 +3,13 @@
   block:
     - name: Download
       ansible.builtin.get_url:
-        url: "https://github.com/containerd/nerdctl/releases/download/v{{ nerdctl_version }}/nerdctl-{{ nerdctl_version }}-linux-{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}.tar.gz"
+        url: "https://github.com/containerd/nerdctl/releases/download/v{{ nerdctl_version }}/{{ nerdctl_archive }}"
         dest: /tmp/nerdctl.tar.gz
         mode: '0700'
-        force: yes
+        force: true
+      vars:
+        nerdctl_arch: "{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}"
+        nerdctl_archive: "nerdctl-{{ nerdctl_version }}-linux-{{ nerdctl_arch }}.tar.gz"
 
     - name: Extract nerdctl.tar.gz into /tmp
       ansible.builtin.unarchive:
@@ -30,10 +33,13 @@
 
     - name: Download CNI plugin
       ansible.builtin.get_url:
-        url: "https://github.com/containernetworking/plugins/releases/download/{{ cni_plugins_version }}/cni-plugins-linux-{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}-{{ cni_plugins_version }}.tgz"
+        url: "https://github.com/containernetworking/plugins/releases/download/{{ cni_plugins_version }}/{{ cni_plugins_archive }}"
         dest: /tmp/cni-plugins.tgz
         mode: '0700'
-        force: yes
+        force: true
+      vars:
+        cni_plugins_arch: "{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}"
+        cni_plugins_archive: "cni-plugins-linux-{{ cni_plugins_arch }}-{{ cni_plugins_version }}.tgz"
 
     - name: Extract cni-plugins.tgz into /tmp
       ansible.builtin.unarchive:

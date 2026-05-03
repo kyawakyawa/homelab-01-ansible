@@ -3,7 +3,7 @@
   ansible.builtin.apt:
     state: present
     # state: latest # 更新する場合はこちらにする
-    update_cache: yes
+    update_cache: true
     pkg:
       - build-essential
       - ceph-common
