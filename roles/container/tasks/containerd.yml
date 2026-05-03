@@ -1,0 +1,52 @@
+---
+- name: Get system architecture
+  ansible.builtin.command:
+    cmd: dpkg --print-architecture
+  register: dpkg_architecture
+  become: true
+
+- name: 'Install packages with apt'
+  ansible.builtin.apt:
+    state: present
+    update_cache: yes
+    pkg:
+      - ca-certificates
+      - curl
+  become: true
+- name: Ensure the keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  become: true
+- name: Add docker gpg key
+  get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: '0644'
+    force: true
+  become: true
+- name: Add docker apt repository
+  apt_repository:
+    repo: deb [arch={{ dpkg_architecture.stdout }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/{{ ansible_facts["system"] | lower }}/{{ ansible_facts["distribution"] | lower }} {{ ansible_facts["distribution_release"] }} stable
+    state: present
+    filename: docker
+  become: true
+- name: 'Install containerd.io'
+  ansible.builtin.apt:
+    state: present # latest  # 更新する場合はこちらにする
+    update_cache: yes
+    name: containerd.io
+    allow_downgrade: yes
+  become: true
+- name: "Generate default config"
+  ansible.builtin.shell:
+    cmd: "containerd config default > /etc/containerd/config.toml"
+    creates: /etc/containerd/config.toml
+  become: true
+- name: Start containerd.service
+  ansible.builtin.service:
+    name: containerd.service
+    state: started
+    enabled: true
+  become: true

@@ -1,0 +1,11 @@
+---
+- name: Install package via apt
+  ansible.builtin.apt:
+    state: present
+    # state: latest # 更新する場合はこちらにする
+    update_cache: yes
+    pkg:
+      - build-essential
+      - ceph-common
+      - libfuse-dev
+      - python3-venv

@@ -1,0 +1,86 @@
+---
+- name: Ensure buildkitd.toml directory exists
+  ansible.builtin.file:
+    path: /etc/buildkit/
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Create buildkitd.toml
+  ansible.builtin.copy:
+    dest: /etc/buildkit/buildkitd.toml
+    content: |
+      [worker.oci]
+        enabled = false
+
+      [worker.containerd]
+        enabled = true
+        # namespace should be "k8s.io" for Kubernetes (including Rancher Desktop)
+        namespace = "default"
+  become: true
+
+- name: Download
+  ansible.builtin.get_url:
+    url: "https://github.com/moby/buildkit/releases/download/{{ buildkit_version }}/buildkit-{{ buildkit_version }}.linux-{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}.tar.gz"
+    dest: /tmp/buildkit.tar.gz
+    mode: '0700'
+  become: true
+
+- name: Extract nerdctl.tar.gz into /tmp
+  ansible.builtin.unarchive:
+    src: /tmp/buildkit.tar.gz
+    dest: /tmp/
+    remote_src: true
+  become: true
+
+- name: Copy
+  ansible.builtin.copy:
+    src: /tmp/bin/buildctl
+    dest: /usr/local/bin/buildctl
+    remote_src: true
+    owner: "root"
+    mode: '0755'
+
+- name: Copy
+  ansible.builtin.copy:
+    src: /tmp/bin/buildkitd
+    dest: /usr/local/bin/buildkitd
+    remote_src: true
+    owner: "root"
+    mode: '0755'
+  become: true
+
+- name: Systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/buildkitd.service
+    content: |
+      [Unit]
+      Description=BuildKit Daemon
+      Documentation=https://github.com/moby/buildkit
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      ExecStart=/usr/local/bin/buildkitd --root /var/lib/buildkit
+      Restart=always
+      RestartSec=5s
+      LimitNOFILE=1048576
+      LimitNPROC=infinity
+      LimitCORE=infinity
+      TasksMax=infinity
+      OOMScoreAdjust=-1000
+
+      [Install]
+      WantedBy=multi-user.target
+  become: true
+
+- name: Reload systemd daemon to apply changes
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  become: true
+
+- name: Start buildkitd.service
+  ansible.builtin.systemd:
+    name: buildkitd.service
+    state: started
+    enabled: yes

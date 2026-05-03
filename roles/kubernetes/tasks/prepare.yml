@@ -1,0 +1,149 @@
+- name: Get system architecture
+  ansible.builtin.command:
+    cmd: dpkg --print-architecture
+  register: dpkg_architecture
+  become: true
+- name: Install kubeadm, kubectl, kubelet
+  block:
+    - name: Ensure the keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+      become: true
+    - name: Download Kubernetes GPG key and save it to the keyring
+      ansible.builtin.shell:
+        cmd: curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.34/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      become: true
+    - name: Add apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.34/deb/ /"
+        state: present
+        filename: kubernetes
+      become: true
+    - name: 'Install kuberadm kubectl'
+      ansible.builtin.apt:
+        state: present # latest  # 更新する場合はこちらにする
+        update_cache: yes
+        pkg:
+          - kubeadm=1.34.0-1.1
+          - kubectl=1.34.0-1.1
+          - kubelet=1.34.0-1.1
+        allow_downgrade: yes
+  become: true
+- name: Helm
+  block:
+    - name: 'Install apt-transport-https'
+      ansible.builtin.apt:
+        state: present # latest  # 更新する場合はこちらにする
+        update_cache: yes
+        pkg:
+          - apt-transport-https
+    - name: Ensure the keyrings directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+    - name: Download Helm GPG key and save it to the keyring
+      ansible.builtin.shell:
+        cmd: "curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null"
+        creates: /usr/share/keyrings/helm.gpg
+    - name: Add apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main"
+        state: present
+        filename: helm-stable-debian
+    - name: 'Install helm'
+      ansible.builtin.apt:
+        state: present
+        update_cache: yes
+        pkg:
+          - helm=3.18.6-1
+        allow_downgrade: yes
+  become: true
+- name: Containerd.conf
+  block:
+    - name: Create file if it does not exist
+      ansible.builtin.file:
+        path: /etc/modules-load.d/containerd.conf
+        state: touch
+      become: true
+    - name: Overlay
+      ansible.builtin.lineinfile:
+        path: "/etc/modules-load.d/containerd.conf"
+        regexp: '^overlay'
+        line: 'overlay'
+      become: true
+    - name: Br_netfilter
+      ansible.builtin.lineinfile:
+        path: "/etc/modules-load.d/containerd.conf"
+        regexp: '^br_netfilter'
+        line: 'br_netfilter'
+      become: true
+    - name: Add the overlay module
+      community.general.modprobe:
+        name: overlay
+        state: present
+    - name: Add the br_netfilter module
+      community.general.modprobe:
+        name: br_netfilter
+        state: present
+  become: true
+- name: /etc/containerd/config.toml
+  block:
+    - name: "Generate default config"
+      ansible.builtin.shell:
+        cmd: "containerd config default > /etc/containerd/config.toml"
+        # creates: /etc/containerd/config.toml
+    - name: "Set cgroup driver"
+      lineinfile:
+        path: /etc/containerd/config.toml
+        regexp: '^\s*SystemdCgroup\s*='
+        line: '\g<0> true'
+        backrefs: yes
+    - name: Disable 'disabled_plugins = ["cri"]'
+      ansible.builtin.lineinfile:
+        path: /etc/containerd/config.toml
+        regexp: '^disabled_plugins'
+        line: 'disabled_plugins = []'
+  become: true
+- name: Restart containerd
+  ansible.builtin.service:
+    name: containerd.service
+    state: restarted
+    enabled: true
+  become: true
+- name: Sysctl
+  block:
+    - name: Enable net.bridge.bridge-nf-call-iptables
+      ansible.posix.sysctl:
+        name: net.bridge.bridge-nf-call-iptables
+        value: '1'
+        sysctl_set: true
+        reload: true
+    - name: Enable net.ipv4.ip_forward
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        sysctl_set: true
+        reload: true
+    - name: Enable net.bridge.bridge-nf-call-ip6tables
+      ansible.posix.sysctl:
+        name: net.bridge.bridge-nf-call-ip6tables
+        value: '1'
+        sysctl_set: true
+        reload: true
+  become: true
+- name: Disable worker node's swap
+  block:
+    - name: Swapoff -a
+      ansible.builtin.shell:
+        cmd: swapoff -a
+    - name: Edit fstab
+      ansible.builtin.lineinfile:
+        path: "/etc/fstab"
+        regexp: '^(?!#).*/swap.img.*$'
+        line: '# \g<0>'
+        backrefs: yes
+  become: true

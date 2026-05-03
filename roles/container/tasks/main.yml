@@ -1,0 +1,17 @@
+---
+- name: Containerd
+  include_tasks: containerd.yml
+- name: Nerdctl
+  include_tasks: nerdctl.yml
+- name: Buildkit
+  include_tasks: buildkit.yml
+- name: DO NOT INSTALL Docker!!!
+  ansible.builtin.apt:
+    state: absent
+    autoremove: yes
+    update_cache: yes
+    pkg:
+      - docker-ce
+      - docker-ce-cli
+      - containerd
+  become: true

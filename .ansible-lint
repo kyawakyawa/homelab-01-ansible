@@ -1,0 +1,8 @@
+profile: basic
+offline: true
+
+skip_list:
+  - key-order[task]
+  - var-naming[no-role-prefix]
+  - command-instead-of-module
+  - command-instead-of-shell

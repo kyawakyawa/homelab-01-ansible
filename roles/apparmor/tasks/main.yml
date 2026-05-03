@@ -1,0 +1,23 @@
+---
+- name: Install AppArmor
+  ansible.builtin.apt:
+    name: apparmor
+    state: present
+    update_cache: true
+
+- name: Ensure AppArmor profile directory exists
+  ansible.builtin.file:
+    path: /etc/apparmor.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install bwrap AppArmor profile
+  ansible.builtin.copy:
+    src: bwrap-userns-restrict
+    dest: /etc/apparmor.d/bwrap-userns-restrict
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload apparmor

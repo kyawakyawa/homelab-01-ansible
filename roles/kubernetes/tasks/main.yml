@@ -1,0 +1,5 @@
+---
+- name: Prepare
+  include_tasks: prepare.yml
+- name: Launch
+  include_tasks: launch.yml

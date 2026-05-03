@@ -1,0 +1,7 @@
+---
+- name: Setup kubernetes
+  hosts: kubernetes
+  tasks:
+    - name: Run kubernetes role
+      import_role:
+        name: kubernetes
