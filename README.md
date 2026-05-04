@@ -37,7 +37,7 @@ uv run ansible-playbook -i config/inventory.ini -K playbooks/setup-kubernetes.ym
 
 ### Slurmのインストール
 ```bash
-uv run ansible-playbook -i config/inventory.ini -K playbooks/setup-slurm.yml
+uv run ansible-playbook -i config/inventory.ini -K -e slurm_install_packages=true playbooks/setup-slurm.yml
 ```
 
 ### ansible-lint (CIと同じ手順)

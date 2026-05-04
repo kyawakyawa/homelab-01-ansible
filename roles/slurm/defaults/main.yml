@@ -7,7 +7,7 @@ slurm_build_root: /var/cache/slurm_build
 slurm_build_dir: "{{ slurm_build_root }}/{{ slurm_source_tag }}"
 slurm_source_archive: "{{ slurm_build_dir }}/slurm.tar.gz"
 slurm_source_dir: "{{ slurm_build_dir }}/source"
-slurm_local_deb_cache: "/tmp/slurm_debs/{{ slurm_source_tag }}/{{ ansible_distribution_version }}"
+slurm_local_deb_cache: "/tmp/slurm_debs/{{ slurm_source_tag }}/{{ ansible_facts['distribution_version'] }}"
 
 slurm_build_dependency_packages:
   - debhelper
