@@ -1,0 +1,19 @@
+---
+- name: Ensure Slurm package cache exists
+  ansible.builtin.file:
+    path: "{{ slurm_build_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0775"
+  become: true
+
+- name: Copy Slurm deb packages to target nodes
+  ansible.builtin.copy:
+    src: "{{ slurm_local_deb_cache }}/{{ item }}"
+    dest: "{{ slurm_build_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ slurm_deb_filenames }}"
+  become: true

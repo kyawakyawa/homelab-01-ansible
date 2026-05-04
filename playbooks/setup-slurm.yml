@@ -1,0 +1,7 @@
+---
+- name: Build Slurm packages
+  hosts: slurm
+  tasks:
+    - name: Run slurm role
+      ansible.builtin.import_role:
+        name: slurm

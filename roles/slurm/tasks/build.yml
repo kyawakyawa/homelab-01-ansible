@@ -1,0 +1,59 @@
+---
+- name: Ensure Slurm build directory exists
+  ansible.builtin.file:
+    path: "{{ slurm_build_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0775"
+  become: true
+
+- name: Check Slurm build marker package
+  ansible.builtin.stat:
+    path: "{{ slurm_build_dir }}/{{ slurm_build_marker_package }}"
+  register: slurm_build_marker
+  become: true
+
+- name: Build Slurm deb packages
+  when: not slurm_build_marker.stat.exists
+  become: true
+  block:
+    - name: Install Slurm package build dependencies
+      ansible.builtin.apt:
+        state: present
+        update_cache: true
+        pkg: "{{ slurm_build_dependency_packages }}"
+
+    - name: Download Slurm source archive
+      ansible.builtin.get_url:
+        url: "https://github.com/SchedMD/slurm/archive/refs/tags/{{ slurm_source_tag }}.tar.gz"
+        dest: "{{ slurm_source_archive }}"
+        mode: "0644"
+        force: true
+
+    - name: Ensure Slurm source directory exists
+      ansible.builtin.file:
+        path: "{{ slurm_source_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Extract Slurm source archive
+      ansible.builtin.unarchive:
+        src: "{{ slurm_source_archive }}"
+        dest: "{{ slurm_source_dir }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components=1
+        creates: "{{ slurm_source_dir }}/debian/control"
+
+    - name: Install Slurm source build dependencies
+      ansible.builtin.command:
+        cmd: mk-build-deps -i debian/control --tool "apt-get -y"
+        chdir: "{{ slurm_source_dir }}"
+
+    - name: Build Slurm deb packages
+      ansible.builtin.command:
+        cmd: debuild -b -uc -us
+        chdir: "{{ slurm_source_dir }}"

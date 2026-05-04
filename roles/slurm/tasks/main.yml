@@ -1,0 +1,20 @@
+---
+- name: Build Slurm packages
+  ansible.builtin.include_tasks: build.yml
+  when: slurm_is_build_host
+
+- name: Collect Slurm package names from build host
+  ansible.builtin.include_tasks: collect.yml
+  when: slurm_distribute_packages or slurm_install_packages
+
+- name: Distribute Slurm packages
+  ansible.builtin.include_tasks: distribute.yml
+  when:
+    - slurm_distribute_packages
+    - slurm_deb_filenames | length > 0
+
+- name: Install Slurm packages
+  ansible.builtin.include_tasks: install.yml
+  when:
+    - slurm_install_packages
+    - slurm_deb_filenames | length > 0

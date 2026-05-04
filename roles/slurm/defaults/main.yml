@@ -1,0 +1,24 @@
+---
+slurm_source_tag: slurm-25-11-5-1
+slurm_package_version: 25.11.5-1
+slurm_deb_arch: amd64
+
+slurm_build_root: /var/cache/slurm_build
+slurm_build_dir: "{{ slurm_build_root }}/{{ slurm_source_tag }}"
+slurm_source_archive: "{{ slurm_build_dir }}/slurm.tar.gz"
+slurm_source_dir: "{{ slurm_build_dir }}/source"
+slurm_local_deb_cache: "/tmp/slurm_debs/{{ slurm_source_tag }}/{{ ansible_distribution_version }}"
+
+slurm_build_dependency_packages:
+  - debhelper
+  - devscripts
+  - equivs
+  - fakeroot
+
+slurm_build_marker_package: "slurm-smd-slurmd_{{ slurm_package_version }}_{{ slurm_deb_arch }}.deb"
+slurm_build_host_group_pattern: "^slurm_build_.*"
+slurm_is_build_host: "{{ group_names | select('match', slurm_build_host_group_pattern) | list | length > 0 }}"
+
+slurm_distribute_packages: true
+slurm_install_packages: false
+slurm_install_client_package: true

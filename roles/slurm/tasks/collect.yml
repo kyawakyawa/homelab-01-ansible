@@ -1,0 +1,51 @@
+---
+- name: Select Slurm build groups
+  ansible.builtin.set_fact:
+    slurm_build_groups: "{{ groups.keys() | select('match', slurm_build_host_group_pattern) | list }}"
+  run_once: true
+
+- name: Ensure a Slurm build group exists
+  ansible.builtin.assert:
+    that:
+      - slurm_build_groups | length > 0
+    fail_msg: "Add at least one inventory group matching {{ slurm_build_host_group_pattern }}."
+  run_once: true
+
+- name: Select Slurm build host
+  ansible.builtin.set_fact:
+    slurm_build_host: "{{ slurm_build_groups | map('extract', groups) | flatten | unique | first }}"
+  run_once: true
+
+- name: Find Slurm deb packages on build host
+  ansible.builtin.find:
+    paths: "{{ slurm_build_dir }}"
+    patterns: "*.deb"
+    file_type: file
+  register: slurm_deb_files
+  delegate_to: "{{ slurm_build_host }}"
+  run_once: true
+  become: true
+
+- name: Store Slurm deb package names
+  ansible.builtin.set_fact:
+    slurm_deb_filenames: "{{ slurm_deb_files.files | map(attribute='path') | map('basename') | sort | list }}"
+  run_once: true
+
+- name: Ensure local Slurm deb cache exists
+  ansible.builtin.file:
+    path: "{{ slurm_local_deb_cache }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Fetch Slurm deb packages from build host
+  ansible.builtin.fetch:
+    src: "{{ slurm_build_dir }}/{{ item }}"
+    dest: "{{ slurm_local_deb_cache }}/"
+    flat: true
+  loop: "{{ slurm_deb_filenames }}"
+  delegate_to: "{{ slurm_build_host }}"
+  run_once: true
+  become: true

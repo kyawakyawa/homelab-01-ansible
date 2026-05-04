@@ -1,0 +1,43 @@
+---
+- name: Install common Slurm package
+  ansible.builtin.apt:
+    deb: "{{ slurm_build_dir }}/slurm-smd_{{ slurm_package_version }}_{{ slurm_deb_arch }}.deb"
+    state: present
+  become: true
+
+- name: Install SlurmDBD package
+  ansible.builtin.apt:
+    deb: "{{ slurm_build_dir }}/slurm-smd-slurmdbd_{{ slurm_package_version }}_{{ slurm_deb_arch }}.deb"
+    state: present
+  when: "'slurm_dbd' in group_names"
+  become: true
+
+- name: Install Slurm controller package
+  ansible.builtin.apt:
+    deb: "{{ slurm_build_dir }}/slurm-smd-slurmctld_{{ slurm_package_version }}_{{ slurm_deb_arch }}.deb"
+    state: present
+  when: "'slurm_ctl' in group_names"
+  become: true
+
+- name: Install Slurm compute package
+  ansible.builtin.apt:
+    deb: "{{ slurm_build_dir }}/slurm-smd-slurmd_{{ slurm_package_version }}_{{ slurm_deb_arch }}.deb"
+    state: present
+  when: "'slurm_comp' in group_names"
+  become: true
+
+- name: Install Slurm login package
+  ansible.builtin.apt:
+    deb: "{{ slurm_build_dir }}/slurm-smd-sackd_{{ slurm_package_version }}_{{ slurm_deb_arch }}.deb"
+    state: present
+  when: "'slurm_login' in group_names"
+  become: true
+
+- name: Install Slurm client package
+  ansible.builtin.apt:
+    deb: "{{ slurm_build_dir }}/slurm-smd-client_{{ slurm_package_version }}_{{ slurm_deb_arch }}.deb"
+    state: present
+  when:
+    - slurm_install_client_package
+    - "'slurm_ctl' in group_names or 'slurm_comp' in group_names or 'slurm_login' in group_names"
+  become: true
