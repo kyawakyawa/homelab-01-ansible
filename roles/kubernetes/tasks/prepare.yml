@@ -1,120 +1,78 @@
-- name: Get system architecture
-  ansible.builtin.command:
-    cmd: dpkg --print-architecture
-  register: dpkg_architecture
-  become: true
-- name: Install kubeadm, kubectl, kubelet
-  block:
-    - name: Ensure the keyrings directory exists
-      ansible.builtin.file:
-        path: /etc/apt/keyrings
-        state: directory
-        mode: '0755'
+---
+- name: Upgrade Kubernetes packages only
+  ansible.builtin.include_tasks:
+    file: upgrade-packages.yml
+    apply:
       become: true
-    - name: Download Kubernetes GPG key and save it to the keyring
-      ansible.builtin.shell:
-        cmd: curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.34/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  when: kubernetes_upgrade_mode | bool
+
+- name: Install Kubernetes packages
+  ansible.builtin.include_tasks:
+    file: install-kubernetes.yml
+    apply:
       become: true
-    - name: Add apt repository
-      ansible.builtin.apt_repository:
-        repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.34/deb/ /"
-        state: present
-        filename: kubernetes
-      become: true
-    - name: 'Install kuberadm kubectl'
-      ansible.builtin.apt:
-        state: present # latest  # 更新する場合はこちらにする
-        update_cache: true
-        pkg:
-          - kubeadm=1.34.0-1.1
-          - kubectl=1.34.0-1.1
-          - kubelet=1.34.0-1.1
-        allow_downgrade: true
-  become: true
-- name: Helm
+  when: not (kubernetes_upgrade_mode | bool)
+
+- name: Configure containerd modules
   block:
-    - name: 'Install apt-transport-https'
-      ansible.builtin.apt:
-        state: present # latest  # 更新する場合はこちらにする
-        update_cache: true
-        pkg:
-          - apt-transport-https
-    - name: Ensure the keyrings directory exists
-      ansible.builtin.file:
-        path: /etc/apt/keyrings
-        state: directory
-        mode: '0755'
-    - name: Download Helm GPG key and save it to the keyring
-      ansible.builtin.shell:
-        cmd: "curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null"
-        creates: /usr/share/keyrings/helm.gpg
-    - name: Add apt repository
-      ansible.builtin.apt_repository:
-        repo: "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main"
-        state: present
-        filename: helm-stable-debian
-    - name: 'Install helm'
-      ansible.builtin.apt:
-        state: present
-        update_cache: true
-        pkg:
-          - helm=3.18.6-1
-        allow_downgrade: true
-  become: true
-- name: Containerd.conf
-  block:
-    - name: Create file if it does not exist
+    - name: Create the containerd modules file
       ansible.builtin.file:
         path: /etc/modules-load.d/containerd.conf
         state: touch
-      become: true
-    - name: Overlay
+        mode: '0644'
+
+    - name: Configure the overlay module
       ansible.builtin.lineinfile:
-        path: "/etc/modules-load.d/containerd.conf"
+        path: /etc/modules-load.d/containerd.conf
         regexp: '^overlay'
-        line: 'overlay'
-      become: true
-    - name: Br_netfilter
+        line: overlay
+
+    - name: Configure the br_netfilter module
       ansible.builtin.lineinfile:
-        path: "/etc/modules-load.d/containerd.conf"
+        path: /etc/modules-load.d/containerd.conf
         regexp: '^br_netfilter'
-        line: 'br_netfilter'
-      become: true
-    - name: Add the overlay module
+        line: br_netfilter
+
+    - name: Load the overlay module
       community.general.modprobe:
         name: overlay
         state: present
-    - name: Add the br_netfilter module
+
+    - name: Load the br_netfilter module
       community.general.modprobe:
         name: br_netfilter
         state: present
   become: true
-- name: /etc/containerd/config.toml
+  when: not (kubernetes_upgrade_mode | bool)
+
+- name: Configure containerd
   block:
-    - name: "Generate default config"
+    - name: Generate the default containerd config
       ansible.builtin.shell:
-        cmd: "containerd config default > /etc/containerd/config.toml"
-        # creates: /etc/containerd/config.toml
-    - name: "Set cgroup driver"
-      lineinfile:
+        cmd: containerd config default > /etc/containerd/config.toml
+
+    - name: Set the containerd cgroup driver
+      ansible.builtin.lineinfile:
         path: /etc/containerd/config.toml
         regexp: '^\s*SystemdCgroup\s*='
         line: '\g<0> true'
         backrefs: true
-    - name: Disable 'disabled_plugins = ["cri"]'
+
+    - name: Enable the containerd CRI plugin
       ansible.builtin.lineinfile:
         path: /etc/containerd/config.toml
         regexp: '^disabled_plugins'
         line: 'disabled_plugins = []'
+
+    - name: Restart containerd
+      ansible.builtin.service:
+        name: containerd.service
+        state: restarted
+        enabled: true
   become: true
-- name: Restart containerd
-  ansible.builtin.service:
-    name: containerd.service
-    state: restarted
-    enabled: true
-  become: true
-- name: Sysctl
+  when: not (kubernetes_upgrade_mode | bool)
+
+- name: Configure sysctl for Kubernetes networking
   block:
     - name: Enable net.bridge.bridge-nf-call-iptables
       ansible.posix.sysctl:
@@ -122,12 +80,14 @@
         value: '1'
         sysctl_set: true
         reload: true
+
     - name: Enable net.ipv4.ip_forward
       ansible.posix.sysctl:
         name: net.ipv4.ip_forward
         value: '1'
         sysctl_set: true
         reload: true
+
     - name: Enable net.bridge.bridge-nf-call-ip6tables
       ansible.posix.sysctl:
         name: net.bridge.bridge-nf-call-ip6tables
@@ -135,15 +95,20 @@
         sysctl_set: true
         reload: true
   become: true
-- name: Disable worker node's swap
+  when: not (kubernetes_upgrade_mode | bool)
+
+- name: Disable swap
   block:
-    - name: Swapoff -a
-      ansible.builtin.shell:
+    - name: Disable active swap
+      ansible.builtin.command:
         cmd: swapoff -a
-    - name: Edit fstab
+      changed_when: false
+
+    - name: Disable the swap image in fstab
       ansible.builtin.lineinfile:
-        path: "/etc/fstab"
+        path: /etc/fstab
         regexp: '^(?!#).*/swap.img.*$'
         line: '# \g<0>'
         backrefs: true
   become: true
+  when: not (kubernetes_upgrade_mode | bool)

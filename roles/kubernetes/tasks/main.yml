@@ -1,5 +1,6 @@
 ---
 - name: Prepare
-  include_tasks: prepare.yml
+  ansible.builtin.include_tasks: prepare.yml
+
 - name: Launch
-  include_tasks: launch.yml
+  ansible.builtin.include_tasks: launch.yml

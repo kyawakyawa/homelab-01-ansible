@@ -2,6 +2,45 @@
 - name: Setup kubernetes
   hosts: kubernetes
   tasks:
-    - name: Run kubernetes role
-      import_role:
+    - name: Validate Kubernetes upgrade host selection
+      ansible.builtin.assert:
+        that:
+          - >-
+            (kubernetes_upgrade_allow_multiple_nodes | default(false) | bool)
+            or (ansible_play_hosts_all | length == 1)
+          - >-
+            ((groups.get('kube_control_plane', []) | intersect(ansible_play_hosts_all) | length) == 0)
+            or ((groups.get('kube_worker_node', []) | intersect(ansible_play_hosts_all) | length) == 0)
+        fail_msg: >-
+          Kubernetes upgrades run on exactly one selected node by default. Set
+          kubernetes_upgrade_allow_multiple_nodes=true to upgrade multiple nodes
+          at once, but do not select control-plane and worker nodes together.
+      run_once: true
+      when: kubernetes_upgrade_mode | default(false) | bool
+
+    - name: Prepare a new Kubernetes node
+      ansible.builtin.import_role:
         name: kubernetes
+      when: not (kubernetes_upgrade_mode | default(false) | bool)
+
+    - name: Upgrade kubeadm package
+      ansible.builtin.include_role:
+        name: kubernetes
+        tasks_from: prepare
+      vars:
+        kubernetes_upgrade_package_stage: kubeadm
+      when: kubernetes_upgrade_mode | default(false) | bool
+
+    - name: Run kubeadm upgrade
+      ansible.builtin.include_role:
+        name: kubernetes
+        tasks_from: launch
+      when: kubernetes_upgrade_mode | default(false) | bool
+
+    - name: Upgrade node packages and restart kubelet
+      ansible.builtin.include_role:
+        name: kubernetes
+        tasks_from: prepare
+      vars:
+        kubernetes_upgrade_package_stage: node
+      when: kubernetes_upgrade_mode | default(false) | bool

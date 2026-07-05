@@ -1,0 +1,67 @@
+---
+- name: Validate the Kubernetes upgrade target
+  ansible.builtin.assert:
+    that:
+      - kubernetes_version is match('^1\.[0-9]+$')
+    fail_msg: Set kubernetes_version to a minor version such as 1.35.
+
+- name: Validate single control-plane upgrade support
+  ansible.builtin.assert:
+    that:
+      - groups.get('kube_control_plane', []) | length == 1
+    fail_msg: >-
+      Kubernetes upgrades currently support exactly one kube_control_plane host.
+      Multi-control-plane upgrades are not implemented yet.
+  run_once: true
+
+- name: Read the target version from the installed kubeadm package
+  ansible.builtin.command:
+    argv:
+      - kubeadm
+      - version
+      - -o
+      - short
+  register: kubernetes_kubeadm_version
+  changed_when: false
+  check_mode: false
+
+- name: Verify the installed kubeadm minor version
+  ansible.builtin.assert:
+    that:
+      - kubernetes_kubeadm_version.stdout is match('^v' ~ (kubernetes_version | regex_escape) ~ '\.')
+    fail_msg: >-
+      Installed kubeadm is {{ kubernetes_kubeadm_version.stdout }}, expected the
+      {{ kubernetes_version }} minor.
+
+- name: Show the control-plane upgrade plan
+  ansible.builtin.command:
+    argv:
+      - kubeadm
+      - upgrade
+      - plan
+      - "{{ kubernetes_kubeadm_version.stdout }}"
+  changed_when: false
+  check_mode: false
+  when: "'kube_control_plane' in group_names"
+
+- name: Upgrade the control plane
+  ansible.builtin.command:
+    argv:
+      - kubeadm
+      - upgrade
+      - apply
+      - --yes
+      - "{{ kubernetes_kubeadm_version.stdout }}"
+  when:
+    - not ansible_check_mode
+    - "'kube_control_plane' in group_names"
+
+- name: Upgrade the worker node configuration
+  ansible.builtin.command:
+    argv:
+      - kubeadm
+      - upgrade
+      - node
+  when:
+    - not ansible_check_mode
+    - "'kube_worker_node' in group_names"

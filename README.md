@@ -35,6 +35,34 @@ uv run ansible-playbook -i config/inventory.ini -K playbooks/setup-nodes.yml
 uv run ansible-playbook -i config/inventory.ini -K playbooks/setup-kubernetes.yml
 ```
 
+### Kubernetesのアップグレード
+デフォルトでは、アップグレード対象は1台だけに制限しています。
+`--limit` で対象ノードを1台に絞って実行してください。
+
+```bash
+uv run ansible-playbook -i config/inventory.ini -K \
+  -e kubernetes_upgrade_mode=true \
+  -e kubernetes_version=1.34 \
+  --limit prx-ubuntu-02 \
+  playbooks/setup-kubernetes.yml
+```
+
+ダウンタイムを認めて同じ種類のノードを一度にアップグレードする場合は、
+`kubernetes_upgrade_allow_multiple_nodes=true` を指定します。
+control-plane と worker を同時に対象にすることは禁止しているため、
+必ず `--limit kube_worker_node` のように片方のグループだけを指定してください。
+
+```bash
+uv run ansible-playbook -i config/inventory.ini -K \
+  -e kubernetes_upgrade_mode=true \
+  -e kubernetes_upgrade_allow_multiple_nodes=true \
+  -e kubernetes_version=1.34 \
+  --limit kube_worker_node \
+  playbooks/setup-kubernetes.yml
+```
+
+複数 control-plane のアップグレードはまだ未対応です。
+
 ### Slurmのインストール
 ```bash
 uv run ansible-playbook -i config/inventory.ini -K -e slurm_install_packages=true playbooks/setup-slurm.yml

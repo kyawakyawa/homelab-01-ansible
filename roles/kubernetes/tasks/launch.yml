@@ -1,56 +1,79 @@
-- name: Conrol plane
+---
+- name: Upgrade the existing Kubernetes node
+  ansible.builtin.include_tasks:
+    file: upgrade.yml
+    apply:
+      become: true
+  when: kubernetes_upgrade_mode | bool
+
+- name: Control plane
   block:
-    - name: Initialize the Kubernetes Control Plane
-      ansible.builtin.shell: |
-        kubeadm init --apiserver-advertise-address={{ apiserver_ip }} --pod-network-cidr=10.244.0.0/16
+    - name: Initialize the Kubernetes control plane
+      ansible.builtin.command:
+        argv:
+          - kubeadm
+          - init
+          - "--apiserver-advertise-address={{ apiserver_ip }}"
+          - --pod-network-cidr=10.244.0.0/16
       register: kubeadm_init_output
       no_log: true
       args:
         creates: /etc/kubernetes/admin.conf
-    - name: Ensure the keyrings directory exists
+
+    - name: Ensure the kube config directory exists
       ansible.builtin.file:
         path: "{{ ansible_facts['env']['HOME'] }}/.kube"
         state: directory
-        owner: "user"
+        owner: user
         mode: '0750'
-      become: true
-    - name: Copy admin.conf to user's kube config
+
+    - name: Copy admin.conf to the user's kube config
       ansible.builtin.copy:
         src: /etc/kubernetes/admin.conf
         dest: "{{ ansible_facts['env']['HOME'] }}/.kube/config"
         remote_src: true
-        owner: "user"
+        owner: user
         mode: '0640'
-    - name: Create join command
-      ansible.builtin.shell: |
-        kubeadm token create --print-join-command
+
+    - name: Create the worker join command
+      ansible.builtin.command:
+        argv:
+          - kubeadm
+          - token
+          - create
+          - --print-join-command
       register: kubeadm_token_create
       no_log: true
+      changed_when: false
+
     - name: Set kubeadm_join_command
       ansible.builtin.set_fact:
         kubeadm_join_command: "{{ hostvars[inventory_hostname]['kubeadm_token_create']['stdout'] }}"
       run_once: true
       no_log: true
-  when: "'kube_control_plane' in group_names"
+  when:
+    - not (kubernetes_upgrade_mode | bool)
+    - "'kube_control_plane' in group_names"
   become: true
+
 - name: Worker node
   block:
     - name: Ensure kubelet has node-ip set
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /etc/default/kubelet
         regexp: '^KUBELET_EXTRA_ARGS='
         line: "KUBELET_EXTRA_ARGS=--node-ip={{ internal_ip }}"
         create: true
+        mode: '0644'
       when: internal_ip is defined
-    - name: Join the Worker Node to the cluster
-      ansible.builtin.shell: "{{ kubeadm_join_command }}"
+
+    - name: Join the worker node to the cluster
+      ansible.builtin.command:
+        cmd: "{{ kubeadm_join_command }}"
       no_log: true
       args:
         creates: /etc/kubernetes/kubelet.conf
-  when: "'kube_worker_node' in group_names"
+  when:
+    - not (kubernetes_upgrade_mode | bool)
+    - "'kube_worker_node' in group_names"
   become: true
-
-# - name: 'Install CNI plugin'
-#   ansible.builtin.shell: kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/v0.25.6/Documentation/kube-flannel.yml
-#   when: inventory_hostname == groups['kube_control_plane'][0]
-#   become: false

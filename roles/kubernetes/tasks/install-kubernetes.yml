@@ -1,0 +1,78 @@
+---
+- name: Validate the Kubernetes minor version
+  ansible.builtin.assert:
+    that:
+      - kubernetes_version is match('^1\.[0-9]+$')
+    fail_msg: Set kubernetes_version to a minor version such as 1.34.
+
+- name: Ensure the Kubernetes apt keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Install the Kubernetes repository signing key
+  ansible.builtin.get_url:
+    url: "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/deb/Release.key"
+    dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+    mode: '0644'
+    force: true
+
+- name: Select the Kubernetes minor apt repository
+  ansible.builtin.copy:
+    content: >-
+      deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc]
+      https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/deb/ /
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install the latest patch release in the selected Kubernetes minor
+  ansible.builtin.apt:
+    state: present
+    update_cache: true
+    pkg:
+      - "kubeadm={{ kubernetes_version }}.*"
+      - "kubectl={{ kubernetes_version }}.*"
+      - "kubelet={{ kubernetes_version }}.*"
+    allow_downgrade: true
+
+- name: Hold Kubernetes packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubeadm
+    - kubectl
+    - kubelet
+
+- name: Ensure the Helm apt keyrings directory exists
+  ansible.builtin.file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Install Helm repository signing key
+  ansible.builtin.shell:
+    cmd: >-
+      curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey |
+      gpg --dearmor |
+      tee /usr/share/keyrings/helm.gpg > /dev/null
+    creates: /usr/share/keyrings/helm.gpg
+
+- name: Select the Helm apt repository
+  ansible.builtin.copy:
+    content: >-
+      deb [signed-by=/usr/share/keyrings/helm.gpg]
+      https://packages.buildkite.com/helm-linux/helm-debian/any/ any main
+    dest: /etc/apt/sources.list.d/helm-stable-debian.list
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install Helm
+  ansible.builtin.apt:
+    name: helm
+    state: present
+    update_cache: true
