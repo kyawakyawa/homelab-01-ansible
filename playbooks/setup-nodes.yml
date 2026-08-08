@@ -2,6 +2,11 @@
 - name: Setup nodes
   hosts: all
   tasks:
+    - name: Run chrony role
+      ansible.builtin.import_role:
+        name: chrony
+      become: true
+
     - name: Run packages role
       import_role:
         name: packages

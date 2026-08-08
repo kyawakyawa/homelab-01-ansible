@@ -1,0 +1,5 @@
+# Step the clock during the first updates when the offset is large, then slew it.
+makestep {{ chrony_makestep_threshold }} {{ chrony_makestep_updates }}
+
+# Keep the hardware clock synchronized with the system clock.
+rtcsync

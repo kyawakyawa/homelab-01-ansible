@@ -19,6 +19,9 @@ uv run ansible -i config/inventory.ini all -m raw -a "hostname"
 ```
 
 ### 基本的なノードのセットアップ
+`chrony` をインストールして複数のNTP sourceを設定し、競合する
+`systemd-timesyncd` を停止・無効化する。
+
 ```bash
 uv run ansible-playbook -i config/inventory.ini -K playbooks/setup-nodes.yml
 ```

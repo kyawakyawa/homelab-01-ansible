@@ -1,0 +1,10 @@
+---
+# Use multiple independent sources so chrony can reject an unhealthy NTP path.
+chrony_ntp_pools:
+  - 0.ubuntu.pool.ntp.org
+  - 1.ubuntu.pool.ntp.org
+  - 2.ubuntu.pool.ntp.org
+  - 3.ubuntu.pool.ntp.org
+
+chrony_makestep_threshold: 1.0
+chrony_makestep_updates: 3

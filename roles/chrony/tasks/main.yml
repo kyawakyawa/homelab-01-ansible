@@ -1,0 +1,40 @@
+---
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Stop and disable systemd-timesyncd
+  ansible.builtin.systemd_service:
+    name: systemd-timesyncd.service
+    state: stopped
+    enabled: false
+  when: ansible_facts.services["systemd-timesyncd.service"] is defined
+
+- name: Install chrony
+  ansible.builtin.apt:
+    name: chrony
+    state: present
+    update_cache: true
+
+- name: Configure chrony NTP sources
+  ansible.builtin.template:
+    src: cluster.sources.j2
+    dest: /etc/chrony/sources.d/cluster.sources
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart chrony
+
+- name: Configure chrony clock correction
+  ansible.builtin.template:
+    src: cluster.conf.j2
+    dest: /etc/chrony/conf.d/cluster.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart chrony
+
+- name: Enable and start chrony
+  ansible.builtin.systemd_service:
+    name: chrony.service
+    state: started
+    enabled: true
