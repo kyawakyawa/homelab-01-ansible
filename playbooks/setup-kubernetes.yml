@@ -48,4 +48,6 @@
     - name: Reapply low-write settings after Kubernetes configuration changes
       ansible.builtin.include_role:
         name: kubernetes_low_write
+        apply:
+          become: true
       when: kubernetes_low_write_enabled | default(false) | bool
