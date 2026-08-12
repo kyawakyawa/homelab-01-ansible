@@ -44,3 +44,8 @@
       vars:
         kubernetes_upgrade_package_stage: node
       when: kubernetes_upgrade_mode | default(false) | bool
+
+    - name: Reapply low-write settings after Kubernetes configuration changes
+      ansible.builtin.include_role:
+        name: kubernetes_low_write
+      when: kubernetes_low_write_enabled | default(false) | bool
