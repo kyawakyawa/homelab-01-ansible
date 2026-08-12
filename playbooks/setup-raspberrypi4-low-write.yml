@@ -1,0 +1,7 @@
+---
+- name: Reduce microSD writes on raspberrypi4-01
+  hosts: raspberrypi4-01
+  become: true
+  roles:
+    - role: kubernetes_low_write
+      when: kubernetes_low_write_enabled | bool

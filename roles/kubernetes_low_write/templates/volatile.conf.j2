@@ -1,0 +1,8 @@
+# Managed by Ansible. Journal entries are stored in /run and are lost on reboot.
+[Journal]
+Storage=volatile
+RuntimeMaxUse={{ kubernetes_low_write_journal_runtime_max_use }}
+RuntimeKeepFree={{ kubernetes_low_write_journal_runtime_keep_free }}
+Compress=yes
+RateLimitIntervalSec=30s
+RateLimitBurst=1000
