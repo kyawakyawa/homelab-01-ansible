@@ -1,0 +1,15 @@
+---
+kubernetes_low_write_enabled: false
+
+kubernetes_low_write_kubelet_log_max_size: 5Mi
+kubernetes_low_write_kubelet_log_max_files: 2
+kubernetes_low_write_kubelet_log_max_workers: 1
+kubernetes_low_write_kubelet_log_monitor_interval: 30s
+
+kubernetes_low_write_journal_runtime_max_use: 64M
+kubernetes_low_write_journal_runtime_keep_free: 128M
+
+kubernetes_low_write_stop_rsyslog: true
+
+kubernetes_low_write_pod_logs_tmpfs_size: 128M
+kubernetes_low_write_pod_logs_tmpfs_nr_inodes: 32k

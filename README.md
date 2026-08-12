@@ -66,6 +66,26 @@ uv run ansible-playbook -i config/inventory.ini -K \
 
 複数 control-plane のアップグレードはまだ未対応です。
 
+### Raspberry Pi 4 Kubernetes workerのmicroSD書き込み抑制
+
+`raspberrypi4-01` 専用のplaybookで、kubeletのコンテナログローテーション、
+journaldの揮発化、rsyslogの停止、Podログ用tmpfsのfstab登録を行う。
+
+```bash
+uv run ansible-playbook -i config/inventory.ini -K \
+  playbooks/setup-raspberrypi4-low-write.yml
+```
+
+tmpfsはその場でマウントせず、次回のOS再起動時に`/var/log/pods`へ
+マウントする。既存ファイルの削除や移動は行わない。
+
+この設定ではjournalは`/run`上に置かれ、OS再起動で失われる。rsyslogも停止・
+無効化するため、通常の`/var/log/syslog`、`/var/log/auth.log`、
+`/var/log/kern.log`は更新されなくなる。既存の永続journalやログファイルは
+削除しない。tmpfsが容量またはinode上限に達すると、コンテナログの書き込みや
+ログを出力するワークロードへ影響する可能性があるため、再起動後は使用量を
+監視すること。`/var/log/containers`は別途マウントせず、通常のsymlink構成を保つ。
+
 ### Slurmのインストール
 ```bash
 uv run ansible-playbook -i config/inventory.ini -K -e slurm_install_packages=true playbooks/setup-slurm.yml

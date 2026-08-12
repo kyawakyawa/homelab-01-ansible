@@ -1,0 +1,86 @@
+---
+- name: Read the existing kubelet configuration
+  ansible.builtin.slurp:
+    src: /var/lib/kubelet/config.yaml
+  register: kubernetes_low_write_kubelet_config
+
+- name: Parse the existing kubelet configuration
+  ansible.builtin.set_fact:
+    kubernetes_low_write_kubelet_config_parsed: >-
+      {{ kubernetes_low_write_kubelet_config.content | b64decode | from_yaml }}
+
+- name: Validate the existing kubelet configuration structure
+  ansible.builtin.assert:
+    that:
+      - kubernetes_low_write_kubelet_config_parsed is mapping
+    fail_msg: /var/lib/kubelet/config.yaml must contain a YAML mapping
+
+- name: Build the kubelet configuration with container log limits
+  ansible.builtin.set_fact:
+    kubernetes_low_write_kubelet_config_rendered: >-
+      {{ kubernetes_low_write_kubelet_config_parsed | combine({
+        'containerLogMaxSize': kubernetes_low_write_kubelet_log_max_size,
+        'containerLogMaxFiles': kubernetes_low_write_kubelet_log_max_files | int,
+        'containerLogMaxWorkers': kubernetes_low_write_kubelet_log_max_workers | int,
+        'containerLogMonitorInterval': kubernetes_low_write_kubelet_log_monitor_interval
+      }) }}
+
+- name: Validate the rendered kubelet container log settings
+  ansible.builtin.assert:
+    that:
+      - kubernetes_low_write_kubelet_config_rendered.containerLogMaxSize == kubernetes_low_write_kubelet_log_max_size
+      - kubernetes_low_write_kubelet_config_rendered.containerLogMaxFiles == (kubernetes_low_write_kubelet_log_max_files | int)
+      - kubernetes_low_write_kubelet_config_rendered.containerLogMaxWorkers == (kubernetes_low_write_kubelet_log_max_workers | int)
+      - kubernetes_low_write_kubelet_config_rendered.containerLogMonitorInterval == kubernetes_low_write_kubelet_log_monitor_interval
+
+- name: Configure kubelet container log limits
+  ansible.builtin.copy:
+    content: >-
+      {{ kubernetes_low_write_kubelet_config_rendered | to_nice_yaml(indent=2, sort_keys=false) }}
+    dest: /var/lib/kubelet/config.yaml
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  notify: Restart kubelet
+
+- name: Create the journald drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure volatile journald storage
+  ansible.builtin.template:
+    src: volatile.conf.j2
+    dest: /etc/systemd/journald.conf.d/volatile.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart systemd-journald
+
+- name: Stop and disable rsyslog
+  ansible.builtin.systemd_service:
+    name: rsyslog.service
+    state: stopped
+    enabled: false
+  when: kubernetes_low_write_stop_rsyslog | bool
+
+- name: Create the pod log directory
+  ansible.builtin.file:
+    path: /var/log/pods
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Register the pod log tmpfs
+  ansible.posix.mount:
+    src: tmpfs
+    path: /var/log/pods
+    fstype: tmpfs
+    opts: >-
+      rw,nosuid,nodev,noatime,mode=0755,size={{ kubernetes_low_write_pod_logs_tmpfs_size }},nr_inodes={{ kubernetes_low_write_pod_logs_tmpfs_nr_inodes }}
+    state: present
