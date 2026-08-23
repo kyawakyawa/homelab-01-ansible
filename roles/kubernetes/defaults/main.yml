@@ -2,4 +2,4 @@
 kubernetes_upgrade_allow_multiple_nodes: false
 kubernetes_upgrade_mode: false
 kubernetes_upgrade_package_stage: all
-kubernetes_version: '1.34'
+kubernetes_version: "1.35"

@@ -45,7 +45,7 @@ uv run ansible-playbook -i config/inventory.ini -K playbooks/setup-kubernetes.ym
 ```bash
 uv run ansible-playbook -i config/inventory.ini -K \
   -e kubernetes_upgrade_mode=true \
-  -e kubernetes_version=1.34 \
+  -e kubernetes_version=1.35 \
   --limit prx-ubuntu-02 \
   playbooks/setup-kubernetes.yml
 ```
@@ -59,7 +59,7 @@ control-plane と worker を同時に対象にすることは禁止している�
 uv run ansible-playbook -i config/inventory.ini -K \
   -e kubernetes_upgrade_mode=true \
   -e kubernetes_upgrade_allow_multiple_nodes=true \
-  -e kubernetes_version=1.34 \
+  -e kubernetes_version=1.35 \
   --limit kube_worker_node \
   playbooks/setup-kubernetes.yml
 ```
